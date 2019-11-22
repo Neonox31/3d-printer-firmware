@@ -1,0 +1,28 @@
+stages:
+  - 👷 build
+  - 🚀 deploy
+
+build:
+  stage: 👷 build
+  image:
+    name: sglahn/platformio-core
+    entrypoint: [""]
+  before_script:
+    - pio --version
+    - pio init
+  script:
+    - pio run -e sanguino_atmega1284p
+  artifacts:
+    paths:
+      - .pioenvs/sanguino_atmega1284p/firmware.hex
+
+USB flash 🔌:
+  stage: 🚀 deploy
+  tags:
+    - lweber-laptop
+  when: manual
+  image:
+    name: akshmakov/avrdude
+    entrypoint: [""]
+  script:
+    - avrdude -p m1284p -c stk500v1 -P /dev/ttyUSB0 -b 57600 -U flash:w:.pioenvs/sanguino_atmega1284p/firmware.hex:i
