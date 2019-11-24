@@ -26,3 +26,17 @@ USB flash 🔌:
     entrypoint: [""]
   script:
     - avrdude -p m1284p -c stk500v1 -P /dev/ttyUSB0 -b 57600 -U flash:w:.pioenvs/sanguino_atmega1284p/firmware.hex:i
+
+OTA flash 📶:
+  stage: 🚀 deploy
+  tags:
+    - lweber-laptop
+  when: manual
+  image: kroniak/ssh-client
+  script:
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - echo "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - scp .pioenvs/sanguino_atmega1284p/firmware.hex ${SSH_USER}@${SSH_HOST}:/tmp
+    - ssh ${SSH_USER}@${SSH_HOST} 'docker run -it --rm -v /tmp/firmware.hex akshmakov/avrdude -p m1284p -c stk500v1 -P /dev/ttyUSB0 -b 57600 -U flash:w:/tmp/firmware.hex:i'
