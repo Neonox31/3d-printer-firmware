@@ -24,21 +24,28 @@ USB flash 🔌:
   image:
     name: akshmakov/avrdude
     entrypoint: [""]
+  variables:
+    GIT_STRATEGY: none
   script:
     - avrdude -p m1284p -c stk500v1 -P /dev/ttyUSB0 -b 57600 -U flash:w:.pioenvs/sanguino_atmega1284p/firmware.hex:i
 
 OTA flash 📶:
   stage: 🚀 deploy
-  tags:
-    - lweber-laptop
+  image: docker
   when: manual
-  image: kroniak/ssh-client
-  script:
+  tags:
+    - lweber-runner
+  variables:
+    GIT_STRATEGY: none
+    DOCKER_HOST: tcp://${RPI_HOST}:2375
+  before_script:
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
     - echo "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
-    - scp .pioenvs/sanguino_atmega1284p/firmware.hex ${SSH_USER}@${SSH_HOST}:/tmp
-    - ssh -tt ${SSH_USER}@${SSH_HOST} 'docker container stop octoprint'
-    - ssh -tt ${SSH_USER}@${SSH_HOST} 'docker run -it --rm --privileged -v /tmp/firmware.hex:/tmp/firmware.hex akshmakov/avrdude:arm32v7 -p m1284p -c stk500v1 -P /dev/ttyUSB0 -b 57600 -U flash:w:/tmp/firmware.hex:i'
-    - ssh -tt ${SSH_USER}@${SSH_HOST} 'docker container start octoprint'
+    - scp $(pwd)/.pioenvs/sanguino_atmega1284p/firmware.hex ${SSH_USER}@${RPI_HOST}:/tmp/firmware.hex
+    - docker container stop octoprint
+  script:
+    - docker run --rm --privileged -v /tmp/firmware.hex:/tmp/firmware.hex:ro akshmakov/avrdude:arm32v7 -p m1284p -c stk500v1 -P /dev/ttyUSB0 -b 57600 -U flash:w:/tmp/firmware.hex:i
+  after_script:
+    - docker container start octoprint
